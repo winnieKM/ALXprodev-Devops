@@ -3,16 +3,20 @@
 # Pokémon list
 pokemon_list=("bulbasaur" "ivysaur" "venusaur" "charmander" "charmeleon")
 
-# Create output directory
 mkdir -p pokemon_data
-
-# Clear previous error log
 > errors.txt
+
+# Timeout in seconds (optional)
+TIMEOUT=10
+
+# Store PIDs
+declare -a pids
 
 for pokemon in "${pokemon_list[@]}"
 do
   (
     echo "Fetching data for $pokemon..."
+
     curl -s -f "https://pokeapi.co/api/v2/pokemon/$pokemon" -o "pokemon_data/${pokemon}.json"
 
     if [ $? -eq 0 ]; then
@@ -21,9 +25,17 @@ do
       echo "Failed to fetch data for $pokemon ❌" >> errors.txt
     fi
   ) &
+  
+  # Store PID of background job
+  pids+=($!)
 done
 
-# Wait for all background processes to finish
-wait
+# Monitor background jobs
+for pid in "${pids[@]}"
+do
+  # Wait with timeout (optional safety)
+  ( sleep $TIMEOUT && kill -0 $pid 2>/dev/null && kill -9 $pid && echo "Process $pid killed due to timeout." >> errors.txt ) &
+  wait $pid
+done
 
 echo "✅ All fetch jobs completed."
