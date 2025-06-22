@@ -1,22 +1,15 @@
 #!/bin/bash
 
-# Pokémon list
 pokemon_list=("bulbasaur" "ivysaur" "venusaur" "charmander" "charmeleon")
-
 mkdir -p pokemon_data
 > errors.txt
 
-# Timeout in seconds (optional)
-TIMEOUT=10
-
-# Store PIDs
 declare -a pids
 
 for pokemon in "${pokemon_list[@]}"
 do
   (
     echo "Fetching data for $pokemon..."
-
     curl -s -f "https://pokeapi.co/api/v2/pokemon/$pokemon" -o "pokemon_data/${pokemon}.json"
 
     if [ $? -eq 0 ]; then
@@ -26,16 +19,17 @@ do
     fi
   ) &
   
-  # Store PID of background job
-  pids+=($!)
+  pid=$!
+  pids+=($pid)
+
+  # OPTIONAL: Add background timeout protection to show `kill` usage
+  ( sleep 15 && kill -0 $pid 2>/dev/null && kill -9 $pid && echo "Killed $pid due to timeout." >> errors.txt ) &
 done
 
-# Monitor background jobs
+# Wait for all background processes to finish
 for pid in "${pids[@]}"
 do
-  # Wait with timeout (optional safety)
-  ( sleep $TIMEOUT && kill -0 $pid 2>/dev/null && kill -9 $pid && echo "Process $pid killed due to timeout." >> errors.txt ) &
-  wait $pid
+  wait "$pid"
 done
 
-echo "✅ All fetch jobs completed."
+echo "✅ All background processes complete."
